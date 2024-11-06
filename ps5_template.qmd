@@ -26,10 +26,10 @@ output:
 ## Submission Steps (10 pts)
 1. This problem set is a paired problem set.
 2. Play paper, scissors, rock to determine who goes first. Call that person *Partner 1*.
-    - Partner 1 (name and cnet ID):
-    - Partner 2 (name and cnet ID):
+    - Partner 1 (name and cnet ID): Sol Rivas Lopes - 12218930
+    - Partner 2 (name and cnet ID): Cristian Bancayan - 
 3. Partner 1 will accept the `ps5` and then share the link it creates with their partner. You can only share it with one partner so you will not be able to change it after your partner has accepted. 
-4. "This submission is our work alone and complies with the 30538 integrity policy." Add your initials to indicate your agreement: \*\*\_\_\*\* \*\*\_\_\*\*
+4. "This submission is our work alone and complies with the 30538 integrity policy." Add your initials to indicate your agreement: **SCRL** \*\*\_\_\*\*
 5. "I have uploaded the names of anyone else other than my partner and I worked with on the problem set **[here](https://docs.google.com/forms/d/185usrCREQaUbvAXpWhChkjghdGgmAZXA3lPWpXLLsts/edit)**"  (1 point)
 6. Late coins used this pset: \*\*\_\_\*\* Late coins left after submission: \*\*\_\_\*\*
 7. Knit your `ps5.qmd` to an PDF file to make `ps5.pdf`, 
@@ -44,6 +44,8 @@ output:
 import pandas as pd
 import altair as alt
 import time
+from bs4 import BeautifulSoup
+import requests
 
 import warnings 
 warnings.filterwarnings('ignore')
@@ -57,6 +59,62 @@ alt.renderers.enable("png")
 
 ```{python}
 
+# Creating empty vector for data
+all_enforcement_data = []
+
+# Looping through each page
+for page_num in range(1, 481):  # 480 pages total
+    # Construct the URL for each page
+    url = f"https://oig.hhs.gov/fraud/enforcement/?page={page_num}"
+    response = requests.get(url)
+    
+    # Check if the request was successful
+    if response.status_code != 200:
+        print(f"Failed to retrieve page {page_num}")
+        continue
+    
+    # Parse the page content
+    soup = BeautifulSoup(response.text, "html.parser")
+    
+    # Extract each enforcement action on the page
+    for action in soup.find_all("li", class_="usa-card card--list pep-card--minimal mobile:grid-col-12"):
+        # Extract title
+        title_tag = action.find("h2", class_="usa-card__heading")
+        title = title_tag.get_text(strip=True)
+        
+        # Extract link
+        link = title_tag.find("a")["href"]
+        full_link = f"https://oig.hhs.gov{link}"  # Ensure it's a full URL
+        
+        # Extract date
+        date = action.find("span", class_="text-base-dark padding-right-105").get_text(strip=True)
+        
+        # Extract category
+        category = action.find("li", class_="display-inline-block usa-tag text-no-lowercase text-base-darkest bg-base-lightest margin-right-1").get_text(strip=True)
+        
+        # Append to list as dictionary
+        all_enforcement_data.append({
+            "Title": title,
+            "Date": date,
+            "Category": category,
+            "Link": full_link
+        })
+    
+    # Track progress
+    print(f"Completed page {page_num}")
+    
+    # Delay to avoid being blocked
+    time.sleep(3)
+
+# Convert the list to a DataFrame
+df_enforcement = pd.DataFrame(all_enforcement_data)
+
+# Print the first few rows of the dataset
+print(df.head())
+
+# Writing a csv to store this locally so I don't have to run 35min code every single time
+df.to_csv("enforcement_actions.csv", index=False)
+
 ```
 
   
@@ -64,6 +122,57 @@ alt.renderers.enable("png")
 
 ```{python}
 
+
+df_enforcement = df_enforcement[0:2995]
+links = df_enforcement["Link"]
+
+agency_info_2994 = agency_info
+
+agency_info = []
+
+# Loop through each enforcement action link in the DataFrame to retrieve the agency info
+for index in range(0, 2995):
+    url = links[index]
+    response = requests.get(url)
+    
+    # Check if the request was successful
+    if response.status_code != 200:
+        print(f"Failed to retrieve agency info for {url}")
+        agency_info.append(None)  # Append None if there's an error
+        continue
+    
+    # Parse the page content
+    soup = BeautifulSoup(response.text, "html.parser")
+    
+    # Find the <li> element, where <span> is
+    agency_tag = None
+    for li in soup.find_all("li"):
+      #find <span> subelement where agency information is
+        if li.find("span", class_="padding-right-2 text-base") and "Agency:" in li.get_text():
+            agency_tag = li
+            break  # Stop once we find the first matching <li> with "Agency:"
+    
+    # Extract the agency information if found
+    if agency_tag:
+        agency = agency_tag.get_text(strip=True).replace("Agency:", "").strip()
+    # If it doesn't find any info on agency, say non
+    else:
+        agency = None
+    
+    # Append the agency information to object
+    agency_info.append(agency)
+    
+    # Track progress
+    print(f"Completed retrieving agency info for row {index}")
+    
+    # Delay to avoid being blocked
+    time.sleep(1)
+
+# Add the agency information to the DataFrame as a new column
+df_enforcement["Agency"] = agency_info
+
+# Writing a csv to store this locally
+df.to_csv("enforcement_actions_with_agency.csv", index=False)
 ```
 
 ## Step 2: Making the scraper dynamic

@@ -1,0 +1,243 @@
+{
+  "cells": [
+    {
+      "cell_type": "markdown",
+      "metadata": {},
+      "source": [
+        "---\n",
+        "title: \"title\"\n",
+        "author: \"author\"\n",
+        "date: \"date\"\n",
+        "format: \n",
+        "  pdf:\n",
+        "    include-in-header: \n",
+        "       text: |\n",
+        "         \\usepackage{fvextra}\n",
+        "         \\DefineVerbatimEnvironment{Highlighting}{Verbatim}{breaklines,commandchars=\\\\\\{\\}}\n",
+        "include-before-body:\n",
+        "  text: |\n",
+        "    \\RecustomVerbatimEnvironment{verbatim}{Verbatim}{\n",
+        "      showspaces = false,\n",
+        "      showtabs = false,\n",
+        "      breaksymbolleft={},\n",
+        "      breaklines\n",
+        "    }\n",
+        "output:\n",
+        "  echo: false\n",
+        "  eval: false\n",
+        "---\n",
+        "\n",
+        "\n",
+        "**Due 11/9 at 5:00PM Central. Worth 100 points + 10 points extra credit.**\n",
+        "\n",
+        "## Submission Steps (10 pts)\n",
+        "1. This problem set is a paired problem set.\n",
+        "2. Play paper, scissors, rock to determine who goes first. Call that person *Partner 1*.\n",
+        "    - Partner 1 (name and cnet ID): Sol Rivas Lopes - 12218930\n",
+        "    - Partner 2 (name and cnet ID): Cristian Bancayan - \n",
+        "3. Partner 1 will accept the `ps5` and then share the link it creates with their partner. You can only share it with one partner so you will not be able to change it after your partner has accepted. \n",
+        "4. \"This submission is our work alone and complies with the 30538 integrity policy.\" Add your initials to indicate your agreement: **SCRL** \\*\\*\\_\\_\\*\\*\n",
+        "5. \"I have uploaded the names of anyone else other than my partner and I worked with on the problem set **[here](https://docs.google.com/forms/d/185usrCREQaUbvAXpWhChkjghdGgmAZXA3lPWpXLLsts/edit)**\"  (1 point)\n",
+        "6. Late coins used this pset: \\*\\*\\_\\_\\*\\* Late coins left after submission: \\*\\*\\_\\_\\*\\*\n",
+        "7. Knit your `ps5.qmd` to an PDF file to make `ps5.pdf`, \n",
+        "    * The PDF should not be more than 25 pages. Use `head()` and re-size figures when appropriate. \n",
+        "8. (Partner 1): push  `ps5.qmd` and `ps5.pdf` to your github repo.\n",
+        "9. (Partner 1): submit `ps5.pdf` via Gradescope. Add your partner on Gradescope.\n",
+        "10. (Partner 1): tag your submission in Gradescope\n",
+        "\n",
+        "\\newpage\n"
+      ],
+      "id": "6cf6e8f1"
+    },
+    {
+      "cell_type": "code",
+      "metadata": {},
+      "source": [
+        "import pandas as pd\n",
+        "import altair as alt\n",
+        "import time\n",
+        "import BeautifulSoup as bs\n",
+        "\n",
+        "import warnings \n",
+        "warnings.filterwarnings('ignore')\n",
+        "alt.renderers.enable(\"png\")"
+      ],
+      "id": "f0232587",
+      "execution_count": null,
+      "outputs": []
+    },
+    {
+      "cell_type": "markdown",
+      "metadata": {},
+      "source": [
+        "## Step 1: Develop initial scraper and crawler\n",
+        "\n",
+        "### 1. Scraping (PARTNER 1)\n"
+      ],
+      "id": "429f6981"
+    },
+    {
+      "cell_type": "code",
+      "metadata": {},
+      "source": [
+        "import requests\n",
+        "from bs4 import BeautifulSoup\n",
+        "import pandas as pd\n",
+        "\n",
+        "# Step 1: Fetch the page\n",
+        "url = \"https://oig.hhs.gov/fraud/enforcement/?\"  # Replace with the actual URL if different\n",
+        "response = requests.get(url)\n",
+        "soup = BeautifulSoup(response.text, \"html.parser\")\n",
+        "\n",
+        "# Step 2: Parse the data\n",
+        "enforcement_data = []\n",
+        "\n",
+        "# Loop through each enforcement action\n",
+        "for action in soup.find_all(\"li\", class_=\"usa-card card--list pep-card--minimal mobile:grid-col-12\"):\n",
+        "    # Extract title\n",
+        "    title_tag = action.find(\"h2\", class_=\"usa-card__heading\")\n",
+        "    title = title_tag.get_text(strip=True)\n",
+        "    \n",
+        "    # Extract link\n",
+        "    link = title_tag.find(\"a\")[\"href\"]\n",
+        "    full_link = f\"https://oig.hhs.gov{link}\"  # Ensure it's a full URL\n",
+        "    \n",
+        "    # Extract date\n",
+        "    date = action.find(\"span\", class_=\"text-base-dark padding-right-105\").get_text(strip=True)\n",
+        "    \n",
+        "    # Extract category\n",
+        "    category = action.find(\"li\", class_=\"display-inline-block usa-tag text-no-lowercase text-base-darkest bg-base-lightest margin-right-1\").get_text(strip=True)\n",
+        "    \n",
+        "    # Append to list\n",
+        "    enforcement_data.append({\n",
+        "        \"Title\": title,\n",
+        "        \"Date\": date,\n",
+        "        \"Category\": category,\n",
+        "        \"Link\": full_link\n",
+        "    })\n",
+        "\n",
+        "# Step 3: Convert to DataFrame\n",
+        "df = pd.DataFrame(enforcement_data)\n",
+        "\n",
+        "# Step 4: Print the first few rows\n",
+        "print(df.head())\n"
+      ],
+      "id": "fa2a7b6f",
+      "execution_count": null,
+      "outputs": []
+    },
+    {
+      "cell_type": "markdown",
+      "metadata": {},
+      "source": [
+        "### 2. Crawling (PARTNER 1)\n"
+      ],
+      "id": "e4b45402"
+    },
+    {
+      "cell_type": "markdown",
+      "metadata": {},
+      "source": [
+        "## Step 2: Making the scraper dynamic\n",
+        "\n",
+        "### 1. Turning the scraper into a function \n",
+        "\n",
+        "* a. Pseudo-Code (PARTNER 2)\n",
+        "\n",
+        "\n",
+        "* b. Create Dynamic Scraper (PARTNER 2)\n"
+      ],
+      "id": "c3e2ec50"
+    },
+    {
+      "cell_type": "markdown",
+      "metadata": {},
+      "source": [
+        "* c. Test Partner's Code (PARTNER 1)\n"
+      ],
+      "id": "94250cb1"
+    },
+    {
+      "cell_type": "markdown",
+      "metadata": {},
+      "source": [
+        "## Step 3: Plot data based on scraped data\n",
+        "\n",
+        "### 1. Plot the number of enforcement actions over time (PARTNER 2)\n"
+      ],
+      "id": "75ed8ec0"
+    },
+    {
+      "cell_type": "markdown",
+      "metadata": {},
+      "source": [
+        "### 2. Plot the number of enforcement actions categorized: (PARTNER 1)\n",
+        "\n",
+        "* based on \"Criminal and Civil Actions\" vs. \"State Enforcement Agencies\"\n"
+      ],
+      "id": "832919cf"
+    },
+    {
+      "cell_type": "markdown",
+      "metadata": {},
+      "source": [
+        "* based on five topics\n"
+      ],
+      "id": "1fe44321"
+    },
+    {
+      "cell_type": "markdown",
+      "metadata": {},
+      "source": [
+        "## Step 4: Create maps of enforcement activity\n",
+        "\n",
+        "### 1. Map by State (PARTNER 1)\n"
+      ],
+      "id": "0e860b66"
+    },
+    {
+      "cell_type": "markdown",
+      "metadata": {},
+      "source": [
+        "### 2. Map by District (PARTNER 2)\n"
+      ],
+      "id": "6db100b9"
+    },
+    {
+      "cell_type": "markdown",
+      "metadata": {},
+      "source": [
+        "## Extra Credit\n",
+        "\n",
+        "### 1. Merge zip code shapefile with population"
+      ],
+      "id": "7456e555"
+    },
+    {
+      "cell_type": "markdown",
+      "metadata": {},
+      "source": [
+        "### 2. Conduct spatial join"
+      ],
+      "id": "b532b188"
+    },
+    {
+      "cell_type": "markdown",
+      "metadata": {},
+      "source": [
+        "### 3. Map the action ratio in each district"
+      ],
+      "id": "3e20fb4b"
+    }
+  ],
+  "metadata": {
+    "kernelspec": {
+      "name": "python3",
+      "language": "python",
+      "display_name": "Python 3 (ipykernel)",
+      "path": "C:\\Users\\solch\\AppData\\Roaming\\Python\\share\\jupyter\\kernels\\python3"
+    }
+  },
+  "nbformat": 4,
+  "nbformat_minor": 5
+}
