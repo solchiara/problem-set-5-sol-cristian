@@ -46,6 +46,7 @@ import altair as alt
 import time
 from bs4 import BeautifulSoup
 import requests
+from datetime import datetime
 
 import warnings 
 warnings.filterwarnings('ignore')
@@ -122,13 +123,19 @@ df.to_csv("enforcement_actions.csv", index=False)
 
 ```{python}
 
-
+# Since data for this problem set is only needed starting from January 2021
+# I am dropping older entries from this df
+# Crawler already took 90min for this restricted database
+#  I will not run this over 7000x more to retrieve info that will not be necessary. 
 df_enforcement = df_enforcement[0:2995]
+
+
+# putting links in a list
 links = df_enforcement["Link"]
 
-agency_info_2994 = agency_info
-
+# Empty list 
 agency_info = []
+
 
 # Loop through each enforcement action link in the DataFrame to retrieve the agency info
 for index in range(0, 2995):
@@ -200,6 +207,9 @@ df.to_csv("enforcement_actions_with_agency.csv", index=False)
 
 ```{python}
 
+# Convert to datetime object
+df_enforcement["Date"] = pd.to_datetime(df_enforcement["Date"], format="%B %d, %Y")
+
 ```
 
 ### 2. Plot the number of enforcement actions categorized: (PARTNER 1)
@@ -207,6 +217,13 @@ df.to_csv("enforcement_actions_with_agency.csv", index=False)
 * based on "Criminal and Civil Actions" vs. "State Enforcement Agencies"
 
 ```{python}
+
+df_enforcement_subset = df_enforcement[
+    (df_enforcement["Category"] == "Criminal and Civil Actions") | 
+    (df_enforcement["Category"] == "State Enforcement Agencies")
+]
+
+df_enforcement_subset = df_enforcement_subset.groupby("Category").
 
 ```
 
