@@ -47,10 +47,18 @@ import time
 from bs4 import BeautifulSoup
 import requests
 from datetime import datetime
+import os
+import geopandas as gpd
+import matplotlib.pyplot as plt
+import re
 
 import warnings 
 warnings.filterwarnings('ignore')
 alt.renderers.enable("png")
+
+# Working directory
+#Cris
+os.chdir(r"C:\Users\Cristian\Documents\GitHub\ppha30538_fall2024\problem-set-5-sol-cristian")
 ```
 
 
@@ -188,17 +196,160 @@ df.to_csv("enforcement_actions_with_agency.csv", index=False)
 
 * a. Pseudo-Code (PARTNER 2)
 
+The steps of the pseudo-code for turning the scraper into a function are:
+
+1. Define the function with the two arguments for year and month:
+
+def scraper_enforcement(year, month)
+
+2. Set up the the input validation
+
+In this step, we restrict the function to accept only years from 2013 onwards. If the user enters a year before 2013, the function should return the message: "Please enter a year from 2013 onwards!" If the year is 2013 or later, the function proceeds with its intended purpose. The validation check should be:
+
+if year < 2013
+ return "Please enter a year from 2013 onwards!"
+
+3. Set the period for scraping: 
+
+We start with an empty list to store the results of each scraped enforcement action. Then, we set the current month to determine the number of years to scrape.
+
+4. Set up the loop through pages: 
+
+We will create a loop to iterate through the pages (unitl the specified input month and year) from page 1. This step also constructs the URL for each page. Additionally, it makes a request to each URL, following the procedures from step 1, which includes scraping data from the website and crawling: clicking on each page and collecting the name of the agency involved. The loop uses while and stops for dates older than the user-entered year and month.
+
+5. Save the dataframe
+
+The final step converts the list into a DataFrame and saves it as a CSV file, with specifications for the file name.
 
 * b. Create Dynamic Scraper (PARTNER 2)
 
 ```{python}
+def scrape_enforcement_actions(year, month):
+    if year < 2013:
+        print("Please enter a year from 2013 onwards!")
+        year = 2013  # Start year
+    
+    all_enforcement_data = []
+    
+    # Base URL
+    base_url = "https://oig.hhs.gov/fraud/enforcement/?page="
+    page_num = 1
+    is_more_pages = True  # Flag to check if there are more pages
+    start_date = datetime(year, month, 1)
+    
+    # Looping through the pages
+    while is_more_pages:
+        url = base_url + str(page_num)
+        response = requests.get(url)
+        
+        if response.status_code != 200:
+            print(f"Failed to retrieve page {page_num}")
+            break
+        
+        soup = BeautifulSoup(response.text, "html.parser")
+        actions = soup.find_all("li", class_="usa-card card--list pep-card--minimal mobile:grid-col-12")
+        
+        # Break the loop if no actions are found
+        if not actions:
+            is_more_pages = False
+            break
+        
+        # Extract data for each enforcement action
+        for action in actions:
+            title_tag = action.find("h2", class_="usa-card__heading")
+            title = title_tag.get_text(strip=True) if title_tag else "N/A"
+            link = title_tag.find("a")["href"] if title_tag else "#"
+            full_link = f"https://oig.hhs.gov{link}"
+            date_str = action.find("span", class_="text-base-dark padding-right-105").get_text(strip=True) if action.find("span", class_="text-base-dark padding-right-105") else "N/A"
+            
+            # Converting the date string to a datetime object for comparison
+            date = datetime.strptime(date_str, "%B %d, %Y") if date_str != "N/A" else None
+            
+            # Skip actions that are older than the start date
+            if date and date < start_date:
+                is_more_pages = False
+                break
+            
+            category = action.find("li", class_="display-inline-block usa-tag text-no-lowercase text-base-darkest bg-base-lightest margin-right-1").get_text(strip=True) if action.find("li", class_="display-inline-block usa-tag text-no-lowercase text-base-darkest bg-base-lightest margin-right-1") else "N/A"
+            
+            # Append to the list
+            all_enforcement_data.append({
+                "Title": title,
+                "Date": date_str,
+                "Category": category,
+                "Link": full_link
+            })
+        
+        print(f"Completed page {page_num}")  # Track progress
+        page_num += 1
+        time.sleep(1)
+    
+    # Convert the data to a DataFrame
+    df_enforcement = pd.DataFrame(all_enforcement_data)
+    
+    # Putting links in a list
+    links = df_enforcement["Link"]
+    
+    # Empty list to store agency information
+    agency_info = []
+    
+    # Function to retrieve agency info for a given URL
+    def get_agency_info(url):
+        try:
+            response = requests.get(url)
+            if response.status_code != 200:
+                print(f"Failed to retrieve agency info for {url}")
+                return None
+            
+            soup = BeautifulSoup(response.text, "html.parser")
+            agency_tag = None
+            for li in soup.find_all("li"):
+                if li.find("span", class_="padding-right-2 text-base") and "Agency:" in li.get_text():
+                    agency_tag = li
+                    break
+            
+            if agency_tag:
+                agency = agency_tag.get_text(strip=True).replace("Agency:", "").strip()
+                return agency
+            else:
+                return None
+        except Exception as e:
+            print(f"Error retrieving agency info for {url}: {e}")
+            return None
 
+    # Loop through each enforcement action link to retrieve the agency info
+    for index, url in enumerate(links):
+        agency = get_agency_info(url)
+        agency_info.append(agency)
+        
+        # Track progress
+        print(f"Completed retrieving agency info for row {index}")
+        time.sleep(0.5)
+    
+    # Add the agency information to the DataFrame as a new column
+    df_enforcement["Agency"] = agency_info
+    
+    # Save the DataFrame to a CSV file
+    file_name = f"enforcement_actions_{year}_{month}.csv"
+    df_enforcement.to_csv(file_name, index=False)
+    print(f"Data saved to {file_name}")
+    
+    return df_enforcement
+```
+
+```{python}
+df_2023 = scrape_enforcement_actions(2023, 1)
+print(f"Total number of actions since January 2023: {len(df_2023)}")
+print("Earliest action details:", df_2023.iloc[-1])
 ```
 
 * c. Test Partner's Code (PARTNER 1)
 
 ```{python}
+df_2021 = scrape_enforcement_actions(2021, 1)
 
+print(f"Total number of actions since January 2023: {len(df_2021)}")
+print("Earliest action details:", df_2021.iloc[-1])
 ```
 
 ## Step 3: Plot data based on scraped data
@@ -206,10 +357,22 @@ df.to_csv("enforcement_actions_with_agency.csv", index=False)
 ### 1. Plot the number of enforcement actions over time (PARTNER 2)
 
 ```{python}
+enforcement_actions_with_agency = pd.read_csv("enforcement_actions_with_agency.csv")
+enforcement_actions_with_agency["Date"] = pd.to_datetime(enforcement_actions_with_agency["Date"])
+enforcement_actions_with_agency["Year"] = enforcement_actions_with_agency["Date"].dt.year
+enforcement_actions_with_agency["Month"] = enforcement_actions_with_agency["Date"].dt.month
 
-# Convert to datetime object
-df_enforcement["Date"] = pd.to_datetime(df_enforcement["Date"], format="%B %d, %Y")
+df_enforcement_ym = enforcement_actions_with_agency.groupby(["Year", "Month"]).aggregate(
+    count_actions=("Title", "count")
+).reset_index()
 
+df_enforcement_ym['Date'] = pd.to_datetime(
+    df_enforcement_ym[['Year', 'Month']].assign(DAY=1))
+
+alt.Chart(df_enforcement_ym).mark_line().encode(
+    alt.X('Date:T'),
+    alt.Y('count_actions:Q')
+)
 ```
 
 ### 2. Plot the number of enforcement actions categorized: (PARTNER 1)
@@ -245,6 +408,65 @@ df_enforcement_subset = df_enforcement_subset.groupby("Category").
 ### 2. Map by District (PARTNER 2)
 
 ```{python}
+# Importing the shape file
+shp_file_district = pd.read_csv(
+    "US_Attorney_Districts_Shapefile_simplified_20241107.csv")
+shp_file_district.columns
+shp_file_district.head(3)
+
+shp_file_district = gpd.GeoDataFrame(
+    shp_file_district, geometry=gpd.GeoSeries.from_wkt(shp_file_district['the_geom']))
+shp_file_district.head(3)
+
+# Cleaning the district name of the enforcement actions
+def extract_district(agency):
+    if isinstance(agency, str):
+        # Look for patterns like "Eastern District of Washington" or "District of Connecticut"
+        match = re.search(r"(Eastern|Western|Northern|Southern)? ?District of [\w\s]+", agency, re.IGNORECASE)
+        if match:
+            return match.group(0).strip()  # Return the matched district name
+    return None  # Return None if no match is found
+
+enforcement_actions_with_agency["District"] = enforcement_actions_with_agency["Agency"].apply(extract_district)
+
+# Keep districts
+enforcement_districts = enforcement_actions_with_agency[enforcement_actions_with_agency["Agency"].str.contains(
+    "District", case=False, na=False)]
+enforcement_districts = enforcement_districts.groupby("District").aggregate(
+    freq = ("Title", "count")
+)
+enforcement_districts.head(3)
+
+# Merge
+enforcement_districts_shp = shp_file_district.merge(enforcement_districts,
+                                                    left_on="Judicial District ",
+                                                    right_on="District",
+                                                    how="inner")
+
+# Plotting
+fig, ax = plt.subplots(figsize=(8, 8))
+enforcement_districts_shp.plot(
+    column="freq",
+    cmap="Greens",
+    legend=False,
+    linewidth=0.5,
+    edgecolor='grey',
+    ax=ax
+)
+
+# Set the x-axis limit to focus on the desired area
+ax.set_xlim(-180, -50)  # Adjust the limits as needed
+
+# Add title and axis labels
+ax.set_title("Number of enforcement actions in each US Attorney District", fontsize=16)
+ax.set_xlabel("Longitude", fontsize=10)
+ax.set_ylabel("Latitude", fontsize=10)
+
+sm = plt.cm.ScalarMappable(cmap="Greens", norm=plt.Normalize(vmin=enforcement_districts_shp["freq"].min(), vmax=enforcement_districts_shp["freq"].max()))
+cbar = fig.colorbar(sm, ax=ax, orientation="horizontal", pad=0.04, fraction=0.046, aspect=40)
+cbar.set_label("Frequency", fontsize=12)
+
+plt.show()
 
 ```
 
