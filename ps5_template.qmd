@@ -47,6 +47,8 @@ import time
 from bs4 import BeautifulSoup
 import requests
 from datetime import datetime
+import os
+
 
 import warnings 
 warnings.filterwarnings('ignore')
@@ -105,16 +107,15 @@ for page_num in range(1, 481):  # 480 pages total
     print(f"Completed page {page_num}")
     
     # Delay to avoid being blocked
-    time.sleep(3)
+    time.sleep(1)
 
 # Convert the list to a DataFrame
 df_enforcement = pd.DataFrame(all_enforcement_data)
 
-# Print the first few rows of the dataset
-print(df.head())
-
 # Writing a csv to store this locally so I don't have to run 35min code every single time
-df.to_csv("enforcement_actions.csv", index=False)
+
+
+df_enforcement.to_csv("enforcement_actions.csv", index=False)
 
 ```
 
@@ -178,8 +179,12 @@ for index in range(0, 2995):
 # Add the agency information to the DataFrame as a new column
 df_enforcement["Agency"] = agency_info
 
+print(df_enforcement)
+
 # Writing a csv to store this locally
-df.to_csv("enforcement_actions_with_agency.csv", index=False)
+df_enforcement.to_csv("enforcement_actions_with_agency.csv", index=False)
+
+
 ```
 
 ## Step 2: Making the scraper dynamic
@@ -207,6 +212,16 @@ df.to_csv("enforcement_actions_with_agency.csv", index=False)
 
 ```{python}
 
+base_path = r"C:\Users\solch\OneDrive\Documentos\2024 - autumn quarter\python II\problem-set-5-sol-cristian"
+
+os.chdir(base_path)
+
+path = os.path.join(
+    base_path, "enforcement_actions_with_agency.csv")
+
+
+df_enforcement = pd.read_csv(path)
+
 # Convert to datetime object
 df_enforcement["Date"] = pd.to_datetime(df_enforcement["Date"], format="%B %d, %Y")
 
@@ -223,7 +238,21 @@ df_enforcement_subset = df_enforcement[
     (df_enforcement["Category"] == "State Enforcement Agencies")
 ]
 
-df_enforcement_subset = df_enforcement_subset.groupby("Category").
+df_enforcement["Period"] = df_enforcement["Date"].dt.to_period("M")
+
+
+df_enforcement_subset = df_enforcement_subset.groupby("Category", "Period").size()
+
+alt.Chart(df_enforcement_subset, title="Number of Enforcement Actions by Month"
+    ).mark_line().encode(
+    alt.X("Period:T", title="Period"),
+    alt.Y("PRVDR_NUM:Q", title="Number of Unique Observations")
+).configure_axis(
+    labelFontSize=8,
+    titleFontSize=12
+)
+
+
 
 ```
 
