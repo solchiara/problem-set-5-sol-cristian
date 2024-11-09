@@ -27,7 +27,7 @@ output:
 1. This problem set is a paired problem set.
 2. Play paper, scissors, rock to determine who goes first. Call that person *Partner 1*.
     - Partner 1 (name and cnet ID): Sol Rivas Lopes - 12218930
-    - Partner 2 (name and cnet ID): Cristian Bancayan - 
+    - Partner 2 (name and cnet ID): Cristian Bancayan - 12403034
 3. Partner 1 will accept the `ps5` and then share the link it creates with their partner. You can only share it with one partner so you will not be able to change it after your partner has accepted. 
 4. "This submission is our work alone and complies with the 30538 integrity policy." Add your initials to indicate your agreement: **SCRL** \*\*\_\_\*\*
 5. "I have uploaded the names of anyone else other than my partner and I worked with on the problem set **[here](https://docs.google.com/forms/d/185usrCREQaUbvAXpWhChkjghdGgmAZXA3lPWpXLLsts/edit)**"  (1 point)
@@ -57,9 +57,9 @@ alt.renderers.enable("png")
 
 # Working directory
 #Cris
-# os.chdir(r"C:\Users\Cristian\Documents\GitHub\ppha30538_fall2024\problem-set-5-sol-cristian")
+os.chdir(r"C:\Users\Cristian\Documents\GitHub\ppha30538_fall2024\problem-set-5-sol-cristian")
 # Sol
-os.chdir(r"C:\Users\solch\OneDrive\Documentos\2024 - autumn quarter\python II\problem-set-5-sol-cristian")
+#os.chdir(r"C:\Users\solch\OneDrive\Documentos\2024 - autumn quarter\python II\problem-set-5-sol-cristian")
 ```
 
 
@@ -349,36 +349,12 @@ print("Earliest action details:", df_2023.iloc[-1])
 ```{python}
 
 # Storing years and moths in lists
-years = [2021, 2022, 2023]
-months = ["January", "February", "March", "April", "May", "June", 
-          "July", "August", "September", "October", "November", "December"]
-
-# Loop through each year and month
-for year in years:
-    for month_index, month in enumerate(months, start=1):
-        # Get year and month actions
-        scrape_enforcement_actions(year, month_index)
-
-# Empty list to store df
-df_final = []
-
-# Read each CSV file and put them together
-for year in years:
-    for month in months:
-        file_name = f"enforcement_actions_{year}_{month}.csv"
-        df = pd.read_csv(file_name)
-        df_final.append(df)
-
-# Make df_list into a df
-df_final = pd.concat(df_final, ignore_index=True)
-
+df_final = scrape_enforcement_actions(2021, 1)
 print(f"Total number of actions between January 2021 and 2023: {len(df_final)}")
 print("Earliest action details:", df_final.iloc[-1])
 
-# Write csv
-df_final.to_csv("enforcement_actions_from_functions.csv", index=False)
-
 ```
+The number of rows is the same as the step 1.
 
 ## Step 3: Plot data based on scraped data
 
@@ -387,6 +363,7 @@ df_final.to_csv("enforcement_actions_from_functions.csv", index=False)
 ```{python}
 
 enforcement_actions_with_agency = pd.read_csv("enforcement_actions_with_agency.csv")
+# Make sure "Date" column is in dt form
 enforcement_actions_with_agency["Date"] = pd.to_datetime(enforcement_actions_with_agency["Date"])
 enforcement_actions_with_agency["Year"] = enforcement_actions_with_agency["Date"].dt.year
 enforcement_actions_with_agency["Month"] = enforcement_actions_with_agency["Date"].dt.month
@@ -631,7 +608,7 @@ plt.show()
 ### 2. Map by District (PARTNER 2)
 
 ```{python}
-# Importing the shape file
+# Import the shape file
 shp_file_district = pd.read_csv(
     "US_Attorney_Districts_Shapefile_simplified_20241107.csv")
 shp_file_district.columns
@@ -641,7 +618,7 @@ shp_file_district = gpd.GeoDataFrame(
     shp_file_district, geometry=gpd.GeoSeries.from_wkt(shp_file_district['the_geom']))
 shp_file_district.head(3)
 
-# Cleaning the district name of the enforcement actions
+# Clean the district name of the enforcement actions
 def extract_district(agency):
     if isinstance(agency, str):
         # Look for patterns like "Eastern District of Washington" or "District of Connecticut"
@@ -652,7 +629,7 @@ def extract_district(agency):
 
 enforcement_actions_with_agency["District"] = enforcement_actions_with_agency["Agency"].apply(extract_district)
 
-# Keep districts
+# Keep districts from the enforcement data
 enforcement_districts = enforcement_actions_with_agency[enforcement_actions_with_agency["Agency"].str.contains(
     "District", case=False, na=False)]
 enforcement_districts = enforcement_districts.groupby("District").aggregate(
@@ -665,7 +642,9 @@ enforcement_districts_shp = shp_file_district.merge(enforcement_districts,
                                                     left_on="Judicial District ",
                                                     right_on="District",
                                                     how="inner")
+```
 
+```{python}
 # Plotting
 fig, ax = plt.subplots(figsize=(8, 8))
 enforcement_districts_shp.plot(
@@ -693,19 +672,3 @@ plt.show()
 
 ```
 
-## Extra Credit
-
-### 1. Merge zip code shapefile with population
-```{python}
-
-```
-
-### 2. Conduct spatial join
-```{python}
-
-```
-
-### 3. Map the action ratio in each district
-```{python}
-
-```
